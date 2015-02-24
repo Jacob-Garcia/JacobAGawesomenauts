@@ -59,7 +59,7 @@ game.PlayerEntity = me.Entity.extend ({
        	  	this.renderable.setAnimationFrame();
        	  }
        }
-
+    
        // These if and else statements declare when to use the "walk" and "idle" animations when the character is either moving or not.
        else if(this.body.vel.x !== 0) {
        if(!this.renderable.isCurrentAnimation("walk")) {
@@ -179,4 +179,32 @@ game.EnemyBaseEntity = me.Entity.extend({
      onCollision: function() {
      	
      }
+});
+
+game.EnemyCreep = me.Entity.extend({
+  init: function(x, y, settings) {
+       this._super(me.Entity, 'init', [x, y,{
+       image: "creep1",
+       width: 32,
+       height: 64,
+       spritewidth: "32",
+       spriteheight: "64",
+       getShape: function() {
+           return (new me.Rect(0, 0, 32, 64)).toPolygon();
+       }
+       }]);
+       this.health = 10;
+       this.alwaysUpdate = true;
+
+       this.setVelocity(3, 20);
+
+       this.type = "EnemyCreep";
+
+       this.renderable.addAnimation("walk", [3, 4, 5], 80);
+       this.renderable,setCurrentAnimation("walk");
+  },
+
+  update: function(){
+    
+  }
 });
