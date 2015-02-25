@@ -125,7 +125,7 @@ game.PlayerBaseEntity = me.Entity.extend({
 
      },
      // Updating functions for when the health of the tower is zero
-     update:function(delta) {
+     update: function(delta) {
          if(this.health<=0) {
          	this.broken = true;
          	this.renderable.setCurrentAnimation("broken");
@@ -169,7 +169,7 @@ game.EnemyBaseEntity = me.Entity.extend({
      update:function(delta) {
          if(this.health<=0) {
          	this.broken = true;
-         	this,renderable.setCurrentAnimation("broken");
+         	this.renderable.setCurrentAnimation("broken");
          }
          this.body.update(delta);
 
@@ -196,15 +196,36 @@ game.EnemyCreep = me.Entity.extend({
        this.health = 10;
        this.alwaysUpdate = true;
 
-       this.setVelocity(3, 20);
+       this.body.setVelocity(3, 20);
 
        this.type = "EnemyCreep";
 
        this.renderable.addAnimation("walk", [3, 4, 5], 80);
-       this.renderable,setCurrentAnimation("walk");
+       this.renderable.setCurrentAnimation("walk");
   },
 
   update: function(){
     
   }
+});
+
+game.GameManager = Object.extend({
+    init: function(x, x, settings) {
+         this.now = new Date().getTime();
+         this.lastCreep = new Date().getTime();
+
+         this.alwaysUpdate = true;
+    },
+     update: function() {
+       this.now = new Date().getTime();
+
+       if(Math.round(this.now/1000)%10 === 0 && (this.now - this.lastCreep >= 1000)) {
+         this.lastCreep = this.now;
+         var creepe = me.pool.pull("EnemyCreep", 1000, 0, {});
+         me.game.world.addChild(creepe, 5);
+       }
+
+
+       return true;
+     }
 });
