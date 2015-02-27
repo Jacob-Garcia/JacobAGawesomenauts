@@ -45,37 +45,21 @@ game.PlayerEntity = me.Entity.extend ({
        	this.body.vel.x = 0;
        }
       // This if statement allows jumping and falling, albeit it being too floaty right now
-        if(me.input.isKeyPressed("jump") && !this.jumping && !this.falling) {
+        if(me.input.isKeyPressed("jump") && !this.body.jumping && !this.body.falling) {
         	this.jumping = true;
         	this.body.vel.y -= this.body.accel.y * me.timer.tick;
         }
 
       // These two if statements allow the attack action to go through with the animations 
          if(me.input.isKeyPressed("attack")) {
-       	  console.log("attack1");
-       	  if(!this.renderable.isCurrentAnimation("attack")){
-       	  	console.log("attack2");
-       	  	this.renderable.setCurrentAnimation("attack");
-       	  	this.renderable.setAnimationFrame();
-       	  }
+          console.log("attack1");
+          if(!this.renderable.isCurrentAnimation("attack")){
+            console.log("attack2");
+            this.renderable.setCurrentAnimation("attack");
+            this.renderable.setAnimationFrame();
+          }
        }
     
-       // These if and else statements declare when to use the "walk" and "idle" animations when the character is either moving or not.
-       else if(this.body.vel.x !== 0) {
-       if(!this.renderable.isCurrentAnimation("walk")) {
-       	   this.renderable.setCurrentAnimation("walk");
-        }
-      } else{
-      	this.renderable.setCurrentAnimation("idle");
-      }        
-      if(me.input.isKeyPressed("attack")) {
-       	  console.log("attack1");
-       	  if(!this.renderable.isCurrentAnimation("attack")){
-       	  	console.log("attack2");
-       	  	this.renderable.setCurrentAnimation("attack");
-       	  	this.renderable.setAnimationFrame();
-       	  }
-       }
      me.collision.check(this, true, this.collideHandler.bind(this), true);
      this.body.update(delta);
 
@@ -195,7 +179,10 @@ game.EnemyCreep = me.Entity.extend({
        }]);
        this.health = 10;
        this.alwaysUpdate = true;
-
+       this.attacking = false;
+       this.lastAttacking = new Date().getTime();
+       this.lastHit = new Date().getTime();
+       this.now = new Date().getTime();
        this.body.setVelocity(3, 20);
 
        this.type = "EnemyCreep";
@@ -205,14 +192,32 @@ game.EnemyCreep = me.Entity.extend({
   },
 
   update: function(delta) {
+       this.now = new Date().getTime();
+
        this.body.vel.x -= this.body.accel.x * me.timer.tick;
+
+       me.collision.check(this, true, this.collideHandler.bind(this), true);
 
        this.body.update(delta);
 
        this._super(me.Entity, "update", [delta]);
 
        return true;
-  }
+  },
+   
+   collideHandler: function(response) {
+      if(response.b.type==='PlayerBase') {
+        this.attacking=true;
+        this.lastAttacking=this.now;
+        this.body.vel.x = 0;
+        this.pos.x = this.pos.x + 1;
+        if((this.now=this.lastHit >= 1000)) {
+            this.lastHit = this.now;
+            response.b.loseHealth(1);
+        }
+      }
+   }
+
 });
 
 game.GameManager = Object.extend({
