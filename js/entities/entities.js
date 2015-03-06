@@ -11,10 +11,15 @@ game.PlayerEntity = me.Entity.extend ({
         		return(new me.Rect(0, 0, 64, 64)).toPolygon();
         	}
         }]); 
+    this.type = "PlayerEntity";
+    this.health = 20;
     // Used for movement, this line sets the velocity in which the palyer moves across the map.
     this.body.setVelocity(5, 20);
     // Keeps track of which direction your player goes
     this.facing = "right";
+    this.now = new Date().getTime();
+    this.lastHit = this.now;
+    this.lastAttack = new Date().getTime();
     // Used to make the camera follow the player as he moves
     me.game.viewport.follow(this.pos, me.game.viewport.AXIS.BOTH);
     // These two lines add aniamtions for the Orc player from the spritesheet he is given in the data file. The numbers represent the different sprites used to imitate a walking animation.
@@ -28,6 +33,12 @@ game.PlayerEntity = me.Entity.extend ({
     },
    // These lines update the player if he ever moves across the map.
     update: function(delta) {
+       this.now = new Date().getTime();
+
+       if (this.health <= 0) {
+        this.dead = true;
+       }
+
        if (me.input.isKeyPressed("right")) {
         //adds to the position of the x by the velocity defined above in
         //setVelocity() and multiplying it by me.timer.tick.
@@ -51,15 +62,16 @@ game.PlayerEntity = me.Entity.extend ({
         }
 
       // These two if statements allow the attack action to go through with the animations 
-         if(me.input.isKeyPressed("attack")) {
-          console.log("attack1");
-          if(!this.renderable.isCurrentAnimation("attack")){
-            console.log("attack2");
-            this.renderable.setCurrentAnimation("attack");
-            this.renderable.setAnimationFrame();
-          }
-       }
-    
+      if(me.input.isKeyPressed("attack")) {
+        if(!this.renderable.isCurrentAnimation("attack")) {
+          this.renderable.setCurrentAnimation("attack", "idle");
+        }
+      }
+      else if(this.body.vel.x !== 0 && !this.renderable.isCurrentAnimation("attack")) {
+        if(!this.renderable.isCurrentAnimation("walk")) {
+           this.renderable.setCurrentAnimation("walk");
+        }
+      }
      me.collision.check(this, true, this.collideHandler.bind(this), true);
      this.body.update(delta);
 
@@ -67,18 +79,60 @@ game.PlayerEntity = me.Entity.extend ({
       this._super(me.Entity, "update", [delta]);
       return true;
     },
+     
+     
+     loseHealth: function(damage) {
+      this.health = this.health - damage;
+     },
+
 
     collideHandler: function(response) {
-    	if(response.b.type==='EnemyBaseEntity') {
+    	if(response.b.type==='EnemyBase') {
     		var ydif = this.pos.y - response.b.pos.y;
     		var xdif = this.pos.x - response.b.pos.x;
 
-    		if(xdif>-35 && this.facing==='right') {
+        if (ydif<-40 && xdif< 70 && xdif>-35) {
+            this.body.falling = false;
+            this.body.vel.y = -1;
+        }
+    		else if(xdif>-35 && this.facing==='right') {
     			this.body.vel.x = 0;
-    			this.pos.x = this.pos.x -1;
+    			//this.pos.x = this.pos.x -1;
     		}
+        else if (xdif<70 && this.facing==='left' && xdif>0) {
+            this.body.vel.x = 0;
+            //this.pos.x = this.pos.x +1;
+        }
+
+        if (this.renderable.isCurrentAnimation("attack") && this.now-this.lastHit >= 1000) {
+           console.log("tower Hit");
+           this.lastHit = this.now;
+           response.b.loseHealth();
+        }
+       }else if(response.b.type==='EnemyCreep') {
+          var xdif = this.pos.x - response.b.pos.x;
+          var xdif = this.pos.y - response.b.pos.y;
+
+          if (xdif>0) {
+            //this.pos.x = this.pos.x + 1;
+            if (this.facing==="left") {
+              this.body.vel.x = 0;
+            }
+          } else {
+             //this.pos.x = this.pos.x - 1;
+             if (this.facing==="right") {
+              this.body.vel.x = 0;
+             }
+          }
+          if (this.renderable.isCurrentAnimation("attack") && this.now-this.lastHit >= 1000
+            && (Math.abs(ydif) <=40) && 
+               ((xdif>0) && this.facing==="left") || (xdif<0) && this.facing==="right") 
+                {
+             this.lastHit = this.now;
+             response.b.loseHealth(1);
+          }
+        }
     	}
-    }
 });
 
 // These two globs of text contain the data of the two towers in the game, for player and the enemy.
@@ -100,9 +154,8 @@ game.PlayerBaseEntity = me.Entity.extend({
        this.health = 10;
        this.alwaysUpdate = true;
        this.body.onCollision = this.onCollision.bind(this);
-       console.log("init");
        // Animations for the towers, same as the Enemy Base. Each one ("broken" and "idle") is used to state whether the tower is almost destroyed or fine.
-       this.type = "PlayerBaseEntity";
+       this.type = "PlayerBase";
        this.renderable.addAnimation("idle", [0]);
        this.renderable.addAnimation("broken", [1]);
        this.renderable.setCurrentAnimation("idle");
@@ -119,9 +172,12 @@ game.PlayerBaseEntity = me.Entity.extend({
          this._super(me.Entity, "update", [delta]);
          return true;
      },
-     onCollision: function() {
+      loseHealth: function(damage) {
+          this.health = this.health - damage;
+     },
+      onCollision: function() {
 
-     }
+      }
 });
 // Same thing as the Player Base entity
 game.EnemyBaseEntity = me.Entity.extend({
@@ -140,8 +196,7 @@ game.EnemyBaseEntity = me.Entity.extend({
        this.health = 10;
        this.alwaysUpdate = true;
        this.body.onCollision = this.onCollision.bind(this);
-       console.log("init");
-       this.type = "EnemyBaseEntity";
+       this.type = "EnemyBase";
 
        this.renderable.addAnimation("idle", [0]);
        this.renderable.addAnimation("broken", [1]);
@@ -160,8 +215,11 @@ game.EnemyBaseEntity = me.Entity.extend({
          this._super(me.Entity, "update", [delta]);
          return true;
      },
+     loseHealth: function(damage){
+        this.health = this.health - damage;
+     }, 
      onCollision: function() {
-     	
+
      }
 });
 
@@ -191,7 +249,16 @@ game.EnemyCreep = me.Entity.extend({
        this.renderable.setCurrentAnimation("walk");
   },
 
+  loseHealth: function(damage) {
+    this.health = this.health - damage;
+  },
+
   update: function(delta) {
+       console.log(this.health);
+       if (this.health <= 0) {
+         me.game.world.removeChild(this);
+       }
+
        this.now = new Date().getTime();
 
        this.body.vel.x -= this.body.accel.x * me.timer.tick;
@@ -211,7 +278,20 @@ game.EnemyCreep = me.Entity.extend({
         this.lastAttacking=this.now;
         this.body.vel.x = 0;
         this.pos.x = this.pos.x + 1;
-        if((this.now=this.lastHit >= 1000)) {
+        if((this.now-this.lastHit >= 1000)) {
+            this.lastHit = this.now;
+            response.b.loseHealth(1);
+        }
+      } else if (response.b.type==='PlayerEntity') {
+        var xdif = this.pos.x - response.b.pos.x;
+        this.attacking=true;
+        this.lastAttacking=this.now;
+        this.body.vel.x = 0;
+        if(xdif>0) {
+          this.pos.x = this.pos.x + 1;
+          this.body.vel.x = 0;
+        }
+        if((this.now-this.lastHit >= 1000)) {
             this.lastHit = this.now;
             response.b.loseHealth(1);
         }
@@ -229,6 +309,11 @@ game.GameManager = Object.extend({
     },
      update: function() {
        this.now = new Date().getTime();
+
+       if (game.data.player.dead) {
+           me.game.world.removeChild(game.data.player);
+           me.state.current().resetPlayer(10, 0);
+       }
 
        if(Math.round(this.now/1000)%10 === 0 && (this.now - this.lastCreep >= 1000)) {
          this.lastCreep = this.now;
